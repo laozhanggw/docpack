@@ -161,6 +161,14 @@
 
   /* ---------- 主流程 ---------- */
   function init(){
+    /* 调试用：?stop=1 时停在页面不跳 */
+    if (/[?&]stop=1/.test(location.search)){
+      elBar.style.width = "100%";
+      elHint.style.display = "none";
+      showReady();
+      return;
+    }
+
     var seen = ls(K_SEEN);
 
     if (!seen){
