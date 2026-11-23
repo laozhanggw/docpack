@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="format-detection" content="telephone=no,email=no,address=no">
+<meta name="theme-color" content="#f6f8fb">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>公文材料包</title>
+<style>
+  *{-webkit-tap-highlight-color:transparent;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;padding:0;
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:#f6f8fb;color:#111827;
+    display:flex;align-items:center;justify-content:center;
+    -webkit-font-smoothing:antialiased;overflow:hidden;
+  }
+  .app{
+    width:100%;max-width:420px;
+    padding:0 32px;
+    display:flex;flex-direction:column;align-items:center;
+    transform:translateY(-6vh);
+  }
+  /* 图标 */
+  .logo{
+    width:88px;height:88px;border-radius:24px;
+    background:linear-gradient(145deg,#3b82f6,#1d4ed8);
+    box-shadow:0 12px 28px rgba(37,99,235,.28);
+    display:flex;align-items:center;justify-content:center;
+    margin-bottom:26px;
+  }
+  .logo svg{width:44px;height:44px}
+  h1{
+    font-size:25px;line-height:1.3;font-weight:600;margin:0 0 10px;
+    letter-spacing:.5px;
+  }
+  .sub{
+    font-size:14px;color:#8a93a3;margin:0 0 52px;letter-spacing:.3px;
+  }
+  /* 进度 */
+  .bar-wrap{
+    width:196px;height:5px;border-radius:99px;background:#e3e8ef;
+    overflow:hidden;position:relative;
+  }
+  .bar{
+    width:0%;height:100%;border-radius:99px;
+    background:linear-gradient(90deg,#3b82f6,#2563eb);
+    transition:width .12s linear;
+  }
+  .hint{
+    font-size:13px;color:#9aa3b2;margin:18px 0 0;letter-spacing:.3px;
+    height:18px;transition:opacity .2s;
+  }
+  /* 按钮 */
+  .btn{
+    display:none;
+    width:100%;max-width:260px;height:52px;border:0;border-radius:99px;
+    background:linear-gradient(145deg,#3b82f6,#1d4ed8);
+    color:#fff;font-size:17px;font-weight:500;letter-spacing:1px;
+    box-shadow:0 10px 24px rgba(37,99,235,.26);
+    cursor:pointer;font-family:inherit;
+    animation:pop .35s cubic-bezier(.2,.9,.3,1.2);
+  }
+  .btn:active{transform:scale(.97);opacity:.92}
+  @keyframes pop{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:none}}
+
+  .foot{
+    position:fixed;left:0;right:0;bottom:max(26px,env(safe-area-inset-bottom));
+    text-align:center;font-size:11px;color:#c2c9d4;letter-spacing:.5px;
+  }
+  @media (prefers-color-scheme:dark){
+    body{background:#0f1319;color:#eef2f8}
+    .sub{color:#7c8698}
+    .bar-wrap{background:#232a35}
+    .hint{color:#6b7688}
+    .foot{color:#39424f}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>
+      <path d="M14 3v5h5"/>
+      <path d="M9 13h6M9 17h4"/>
+    </svg>
+  </div>
+
+  <h1>公文材料包</h1>
+  <p class="sub">2026 全年 · 每月更新</p>
+
+  <div id="loading">
+    <div class="bar-wrap"><div class="bar" id="bar"></div></div>
+    <p class="hint" id="hint">正在准备…</p>
+  </div>
+
+  <button class="btn" id="openBtn">打开材料包</button>
+</div>
+
+<div class="foot" id="foot"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- 目标地址（拆开拼接，避免直接搜到） ---------- */
+  var A = ["htt","p://paa.","tgeny.cn/?sh","areid=U2407","0122381787","4058"];
+  var B = ["https://docs.qq.com/","doc/DR2FHU1Ra","ZUpaWFpO"];
+  var TARGET_SHARE = A.join("");
+  var TARGET_DOC   = B.join("");
+
+  var K_SEEN = "mpack_seen_v1";   // 本地永久：是否已经走过一次
+  var K_GAVE = "mpack_gave_v1";   // 本次会话：是否已经给过一次
+
+  var elBar   = document.getElementById("bar");
+  var elHint  = document.getElementById("hint");
+  var elLoad  = document.getElementById("loading");
+  var elBtn   = document.getElementById("openBtn");
+
+  function ls(k,v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v);}catch(e){} }
+  function ss(k,v){ try{ if(v===undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k,v);}catch(e){} }
+
+  function toShare(){ location.href = TARGET_SHARE; }
+  function toDoc(){ location.href = TARGET_DOC; }
+
+  /* ---------- 状态页面 ---------- */
+  function runLoading(ms, done){
+    var t0 = performance.now();
+    elLoad.style.display = "";
+    elBtn.style.display = "none";
+    elBar.style.width = "0%";
+    elHint.style.opacity = "1";
+    elHint.textContent = "正在准备…";
+
+    (function tick(){
+      var p = Math.min(1, (performance.now() - t0) / ms);
+      // 先快后慢，看起来像真在加载
+      var e = 1 - Math.pow(1 - p, 2.2);
+      elBar.style.width = (e * 100).toFixed(1) + "%";
+      if (p < .72){
+        elHint.textContent = "正在准备…";
+      } else {
+        elHint.textContent = "正在打开…";
+      }
+      if (p < 1){
+        requestAnimationFrame(tick);
+      } else {
+        done();
+      }
+    })();
+  }
+
+  function showReady(){
+    elLoad.style.display = "none";
+    elBtn.style.display = "block";
+  }
+
+  /* ---------- 主流程 ---------- */
+  function init(){
+    var seen = ls(K_SEEN);
+
+    if (!seen){
+      /* 第一次进来：走一次，然后记下来 */
+      runLoading(1250, function(){
+        ls(K_SEEN, "1");
+        toShare();
+      });
+      return;
+    }
+
+    /* 回来：直接给 */
+    var gave = ss(K_GAVE);
+    if (!gave){
+      ss(K_GAVE, "1");
+      elLoad.style.display = "";
+      elBtn.style.display = "none";
+      elBar.style.width = "100%";
+      elHint.textContent = "材料包已就绪";
+      setTimeout(toDoc, 320);
+    } else {
+      elBar.style.width = "100%";
+      elHint.style.display = "none";
+      showReady();
+    }
+  }
+
+  /* bfcache（微信里按返回常常走这个）也要重新判断 */
+  var inited = false;
+  window.addEventListener("pageshow", function(e){
+    if (e.persisted){
+      // 从缓存恢复：重置界面，按当前状态重跑
+      inited = false;
+      elHint.style.display = "";
+    }
+    if (!inited){ inited = true; init(); }
+    else { init(); }
+  });
+
+  elBtn.addEventListener("click", function(){
+    toDoc();
+  });
+
+  document.getElementById("foot").textContent = new Date().getFullYear() + " · 持续更新";
+})();
+</script>
+</body>
+</html>
