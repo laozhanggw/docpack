@@ -161,6 +161,13 @@
 
   /* ---------- 主流程 ---------- */
   function init(){
+    /* 调试用：?reset=1 清空状态，方便反复测试 */
+    if (/[?&]reset=1/.test(location.search)){
+      try{ localStorage.clear(); sessionStorage.clear(); }catch(e){}
+      location.replace(location.pathname);
+      return;
+    }
+
     /* 调试用：?stop=1 时停在页面不跳 */
     if (/[?&]stop=1/.test(location.search)){
       elBar.style.width = "100%";
